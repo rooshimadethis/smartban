@@ -2,9 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:smartban/providers/kanban_state.dart';
 import 'package:smartban/screens/kanban_screen.dart';
+import 'package:smartban/services/spotlight_service.dart';
+import 'package:smartban/widgets/spotlight_overlay.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  // Initialize Spotlight Service (handles hotkeys and window manager)
+  await SpotlightService().initialize();
+
   runApp(const MyApp());
 }
 
@@ -32,7 +37,8 @@ class MyApp extends StatelessWidget {
           ),
           cardColor: const Color(0xFF2C2C2C),
         ),
-        home: const KanbanScreen(),
+        // Wrap the home screen with SpotlightOverlay
+        home: const SpotlightOverlay(child: KanbanScreen()),
       ),
     );
   }
