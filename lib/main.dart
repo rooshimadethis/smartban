@@ -14,18 +14,22 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
-      providers: [
-        ChangeNotifierProvider(create: (_) => KanbanState()),
-      ],
+      providers: [ChangeNotifierProvider(create: (_) => KanbanState())],
       child: MaterialApp(
         title: 'SmartBan',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          // Using a modern, clean theme
+          brightness: Brightness.dark,
           primarySwatch: Colors.blue,
           fontFamily: 'SF Pro Display', // System font for Mac matches well
           useMaterial3: true,
-          scaffoldBackgroundColor: Colors.white,
+          scaffoldBackgroundColor: const Color(0xFF282828),
+          colorScheme: const ColorScheme.dark(
+            primary: Colors.blueAccent,
+            surface: Color(0xFF1E1E1E),
+            onSurface: Colors.white,
+          ),
+          cardColor: const Color(0xFF2C2C2C),
         ),
         home: const KanbanScreen(),
       ),
