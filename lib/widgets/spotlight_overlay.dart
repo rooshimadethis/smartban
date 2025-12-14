@@ -192,8 +192,9 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                 Expanded(
                                   child: Focus(
                                     onKeyEvent: (node, event) {
-                                      // Only handle key down events
-                                      if (event is! KeyDownEvent) {
+                                      // Handle key down and key repeat events (for holding keys)
+                                      if (event is! KeyDownEvent &&
+                                          event is! KeyRepeatEvent) {
                                         return KeyEventResult.ignored;
                                       }
 
@@ -553,7 +554,7 @@ class SpotlightTextController extends TextEditingController {
       }
 
       // Case 2: Cursor after word + space (e.g., "create |")
-      if (lowerTextBeforeCursor.endsWith(word.toLowerCase() + ' ')) {
+      if (lowerTextBeforeCursor.endsWith('${word.toLowerCase()} ')) {
         // Make sure we're actually at the end of this word + space
         final startPos = cursorPos - word.length - 1;
         if (startPos == 0 || text[startPos - 1] == ' ') {
