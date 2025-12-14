@@ -4,6 +4,13 @@ import 'package:smartban/models/ticket.dart';
 import 'package:smartban/providers/kanban_state.dart';
 import 'package:uuid/uuid.dart';
 
+class ProcessResult {
+  final String message;
+  final void Function()? undoAction;
+
+  ProcessResult(this.message, {this.undoAction});
+}
+
 abstract class Command {}
 
 class MoveTicketCommand extends Command {
@@ -90,7 +97,7 @@ class NLPService {
     return moveCommand | commentOn | createCommand | implicitCreate;
   }
 
-  Future<String> process(String input) async {
+  Future<ProcessResult> process(String input) async {
     final parser = buildParser();
     final result = parser.parse(input);
 
@@ -98,27 +105,41 @@ class NLPService {
       final command = result.value;
       return await _execute(command);
     } else {
-      return "Could not understand command.";
+      return ProcessResult("Could not understand command.");
     }
   }
 
-  Future<String> _execute(Command command) async {
+  Future<ProcessResult> _execute(Command command) async {
     if (command is MoveTicketCommand) {
       final ticket = _findTicket(command.ticketQuery);
       if (ticket == null) {
-        return "Ticket not found for '${command.ticketQuery}'";
+        return ProcessResult("Ticket not found for '${command.ticketQuery}'");
       }
+      final oldStatus = ticket.status;
       kanbanState.updateTicketStatus(ticket.id, command.targetStatus);
-      return "Moved '${ticket.title}' to ${command.targetStatus.name}";
+      return ProcessResult(
+        "Moved '${ticket.title}' to ${command.targetStatus.name}",
+        undoAction: () {
+          kanbanState.updateTicketStatus(ticket.id, oldStatus);
+        },
+      );
     } else if (command is CommentCommand) {
       final ticket = _findTicket(command.ticketQuery);
       if (ticket == null) {
-        return "Ticket not found for '${command.ticketQuery}'";
+        return ProcessResult("Ticket not found for '${command.ticketQuery}'");
       }
+      final oldComments = List<String>.from(ticket.comments);
       kanbanState.addComment(ticket.id, command.comment);
-      return "Added comment to '${ticket.title}'";
+      return ProcessResult(
+        "Added comment to '${ticket.title}'",
+        undoAction: () {
+          kanbanState.updateTicketComments(ticket.id, oldComments);
+        },
+      );
     } else if (command is CreateTicketCommand) {
-      if (command.title.trim().isEmpty) return "Please enter a title.";
+      if (command.title.trim().isEmpty) {
+        return ProcessResult("Please enter a title.");
+      }
 
       // Default to first project for now
       final projectId = kanbanState.projects.isNotEmpty
@@ -134,9 +155,14 @@ class NLPService {
         comments: [],
       );
       kanbanState.addTicket(newTicket);
-      return "Created ticket '${newTicket.title}'";
+      return ProcessResult(
+        "Created ticket '${newTicket.title}'",
+        undoAction: () {
+          kanbanState.deleteTicket(newTicket.id);
+        },
+      );
     }
-    return "Unknown command";
+    return ProcessResult("Unknown command");
   }
 
   Ticket? _findTicket(String query) {

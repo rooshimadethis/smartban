@@ -97,6 +97,15 @@ class KanbanState extends ChangeNotifier {
     }
   }
 
+  void updateTicketComments(String ticketId, List<String> comments) {
+    final index = _tickets.indexWhere((t) => t.id == ticketId);
+    if (index != -1) {
+      _tickets[index] = _tickets[index].copyWith(comments: comments);
+      _saveData();
+      notifyListeners();
+    }
+  }
+
   Project? getProjectById(String id) {
     try {
       return _projects.firstWhere((p) => p.id == id);
