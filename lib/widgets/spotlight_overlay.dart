@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:smartban/providers/kanban_state.dart';
+import 'package:smartban/services/nlp_service.dart';
 import 'package:smartban/services/spotlight_service.dart';
 
 class SpotlightOverlay extends StatefulWidget {
@@ -67,7 +70,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             blurRadius: 20,
                             offset: const Offset(0, 10),
                           ),
@@ -96,9 +99,37 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                       border: InputBorder.none,
                                       contentPadding: EdgeInsets.zero,
                                     ),
-                                    onSubmitted: (value) {
-                                      // TODO: Implement search/create logic
-                                      print("Submitted: $value");
+                                    onSubmitted: (value) async {
+                                      if (value.trim().isEmpty) return;
+
+                                      final kanbanState =
+                                          Provider.of<KanbanState>(
+                                            context,
+                                            listen: false,
+                                          );
+                                      final nlpService = NLPService(
+                                        kanbanState,
+                                      );
+
+                                      final result = await nlpService.process(
+                                        value,
+                                      );
+
+                                      if (context.mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          SnackBar(
+                                            content: Text(result),
+                                            behavior: SnackBarBehavior.floating,
+                                            margin: const EdgeInsets.all(20),
+                                            backgroundColor: const Color(
+                                              0xFF333333,
+                                            ),
+                                          ),
+                                        );
+                                      }
+
                                       SpotlightService().hide();
                                     },
                                   ),

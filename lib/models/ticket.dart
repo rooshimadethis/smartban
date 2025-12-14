@@ -7,12 +7,15 @@ class Ticket {
   final TicketStatus status;
   final String projectId;
 
+  final List<String> comments;
+
   const Ticket({
     required this.id,
     required this.title,
     required this.description,
     required this.status,
     required this.projectId,
+    this.comments = const [],
   });
 
   Ticket copyWith({
@@ -21,6 +24,7 @@ class Ticket {
     String? description,
     TicketStatus? status,
     String? projectId,
+    List<String>? comments,
   }) {
     return Ticket(
       id: id ?? this.id,
@@ -28,6 +32,7 @@ class Ticket {
       description: description ?? this.description,
       status: status ?? this.status,
       projectId: projectId ?? this.projectId,
+      comments: comments ?? this.comments,
     );
   }
 
@@ -38,6 +43,7 @@ class Ticket {
       'description': description,
       'status': status.name,
       'projectId': projectId,
+      'comments': comments,
     };
   }
 
@@ -48,6 +54,7 @@ class Ticket {
       description: json['description'],
       status: TicketStatus.values.byName(json['status']),
       projectId: json['projectId'],
+      comments: (json['comments'] as List<dynamic>?)?.cast<String>() ?? [],
     );
   }
 }
