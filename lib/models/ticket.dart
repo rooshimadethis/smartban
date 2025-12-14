@@ -14,7 +14,7 @@ class Ticket {
     required this.status,
     required this.projectId,
   });
-  
+
   Ticket copyWith({
     String? id,
     String? title,
@@ -28,6 +28,26 @@ class Ticket {
       description: description ?? this.description,
       status: status ?? this.status,
       projectId: projectId ?? this.projectId,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'title': title,
+      'description': description,
+      'status': status.name,
+      'projectId': projectId,
+    };
+  }
+
+  factory Ticket.fromJson(Map<String, dynamic> json) {
+    return Ticket(
+      id: json['id'],
+      title: json['title'],
+      description: json['description'],
+      status: TicketStatus.values.byName(json['status']),
+      projectId: json['projectId'],
     );
   }
 }

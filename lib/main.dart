@@ -4,6 +4,7 @@ import 'package:smartban/providers/kanban_state.dart';
 import 'package:smartban/screens/kanban_screen.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
   runApp(const MyApp());
 }
 
