@@ -294,7 +294,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
 class SpotlightTextController extends TextEditingController {
   List<String> tickets = [];
   List<String> projects = [];
-  final List<String> commands = ['Create', 'Move', 'Comment'];
+  final List<String> commands = ['Create', 'Move', 'Comment on'];
 
   void updateData(List<String> currentTickets, List<String> currentProjects) {
     if (listEquals(tickets, currentTickets) &&
@@ -353,9 +353,11 @@ class SpotlightTextController extends TextEditingController {
       children.add(TextSpan(text: text.substring(0, 7), style: commandStyle));
 
       String remaining = text.substring(7);
-      // " on " - standard
+      // " on " - highlight as command style
       if (remaining.toLowerCase().startsWith(" on ")) {
-        children.add(TextSpan(text: remaining.substring(0, 4), style: style));
+        children.add(
+          TextSpan(text: remaining.substring(0, 4), style: commandStyle),
+        );
         remaining = remaining.substring(4);
 
         // Look for ticket

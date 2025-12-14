@@ -16,6 +16,7 @@ class MockData {
       description: 'Create high-fidelity mockups for the new home screen.',
       status: TicketStatus.todo,
       projectId: 'p1',
+      comments: ['Needs larger icons', 'Check contrast ratio'],
     ),
     Ticket(
       id: 't2',
@@ -30,6 +31,7 @@ class MockData {
       description: 'Implement JWT based auth.',
       status: TicketStatus.inProgress,
       projectId: 'p2',
+      comments: ['Use RSA 256'],
     ),
     Ticket(
       id: 't4',
@@ -45,7 +47,7 @@ class MockData {
       status: TicketStatus.inProgress,
       projectId: 'p1',
     ),
-      Ticket(
+    Ticket(
       id: 't6',
       title: 'Database Schema',
       description: 'Define the initial schema for Postgres.',

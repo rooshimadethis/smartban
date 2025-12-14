@@ -11,14 +11,6 @@ class SuggestionService {
 
     final lowerInput = input.toLowerCase();
 
-    // 1. Check for Commands
-    const commands = ['Create', 'Move', 'Comment'];
-    String? bestCommand = _findBestCandidate(lowerInput, commands);
-    if (bestCommand != null && input.length < 4) {
-      // Only suggest early for commands since they are short
-      return bestCommand;
-    }
-
     // 2. Context-aware suggestions
     // MOVE
     if (lowerInput.startsWith('move ')) {
@@ -65,19 +57,25 @@ class SuggestionService {
     }
 
     // COMMENT
-    if (lowerInput.startsWith('comment ')) {
-      if (lowerInput.startsWith('comment on ')) {
-        final remainder = input.substring(11); // "Comment on "
-        if (kanbanState.tickets.isNotEmpty) {
-          final ticketTitles = kanbanState.tickets.map((t) => t.title).toList();
-          String? bestTicket = _findBestCandidate(remainder, ticketTitles);
-          if (bestTicket != null) {
-            return "Comment on $bestTicket: ";
-          }
+    if (lowerInput.startsWith('comment on ')) {
+      final remainder = input.substring(11); // "Comment on "
+      if (kanbanState.tickets.isNotEmpty) {
+        final ticketTitles = kanbanState.tickets.map((t) => t.title).toList();
+        String? bestTicket = _findBestCandidate(remainder, ticketTitles);
+        if (bestTicket != null) {
+          return "Comment on $bestTicket: ";
         }
-      } else {
-        return "Comment on ";
       }
+    } else if (lowerInput.startsWith('comment ')) {
+      return "Comment on ";
+    }
+
+    // 3. Generic Command Fallback
+    const commands = ['Create', 'Move', 'Comment on'];
+    String? bestCommand = _findBestCandidate(lowerInput, commands);
+    if (bestCommand != null &&
+        bestCommand.toLowerCase().startsWith(lowerInput)) {
+      return bestCommand;
     }
 
     return null;
@@ -87,15 +85,17 @@ class SuggestionService {
     if (input.isEmpty) return null;
     final lowerInput = input.toLowerCase();
 
-    // 1. Starts With (Case Insensitive)
+    // Calculate all scores for logging
+    final match = StringSimilarity.findBestMatch(input, candidates);
+
+    // 1. Starts With (Case Insensitive) - Priority
     for (var candidate in candidates) {
       if (candidate.toLowerCase().startsWith(lowerInput)) {
         return candidate;
       }
     }
 
-    // 2. Fuzzy Match
-    final match = StringSimilarity.findBestMatch(input, candidates);
+    // 2. Fuzzy Match - Fallback
     if (match.bestMatch.rating != null && match.bestMatch.rating! > 0.4) {
       return match.bestMatch.target;
     }
