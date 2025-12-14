@@ -1,100 +1,46 @@
 import 'package:smartban/providers/kanban_state.dart';
-import 'package:string_similarity/string_similarity.dart';
+import 'package:smartban/services/suggestion/command_strategy.dart';
+import 'package:smartban/services/suggestion/strategies/move_strategy.dart';
+import 'package:smartban/services/suggestion/strategies/comment_strategy.dart';
+import 'package:smartban/services/suggestion/strategies/create_ticket_strategy.dart';
+import 'package:smartban/services/suggestion/suggestion_mixin.dart'; // Import for fallback usage if needed
 
-class SuggestionService {
+class SuggestionService with SuggestionMixin {
   final KanbanState kanbanState;
+  final List<CommandStrategy> _strategies = [
+    MoveCommandStrategy(),
+    CommentCommandStrategy(),
+    CreateTicketCommandStrategy(),
+  ];
 
   SuggestionService(this.kanbanState);
 
   List<String> getSuggestions(String input) {
     if (input.trim().isEmpty) return [];
 
-    final lowerInput = input.toLowerCase();
+    final List<String> suggestions = [];
 
-    // 2. Context-aware suggestions
-    // MOVE
-    if (lowerInput.startsWith('move ')) {
-      final remainder = input.substring(5); // "Move " is 5 chars
-
-      // If we have "Move <ticket> to ", suggest status
-      if (lowerInput.contains(' to ')) {
-        final parts = lowerInput.split(' to ');
-        if (parts.length > 1) {
-          final statusPart = parts.last;
-          final statusCandidates = ['Todo', 'In Progress', 'Done'];
-
-          if (statusPart.trim().isEmpty) {
-            return statusCandidates.map((s) => "$input$s").take(3).toList();
-          }
-
-          final bestStatuses = _findCandidates(statusPart, statusCandidates);
-
-          if (bestStatuses.isNotEmpty) {
-            final prefix = input.substring(
-              0,
-              input.toLowerCase().lastIndexOf(statusPart.toLowerCase()),
-            );
-            return bestStatuses.map((s) => "$prefix$s").take(3).toList();
-          }
-        }
-      } else {
-        // Suggesting tickets
-        if (kanbanState.tickets.isNotEmpty) {
-          final ticketTitles = kanbanState.tickets.map((t) => t.title).toList();
-          final bestTickets = _findCandidates(remainder, ticketTitles);
-          return bestTickets.map((t) => "Move $t").take(3).toList();
-        }
+    // 1. Ask strategies
+    for (final strategy in _strategies) {
+      if (strategy.matches(input)) {
+        suggestions.addAll(strategy.getSuggestions(input, kanbanState));
       }
     }
 
-    // COMMENT
-    if (lowerInput.startsWith('comment on ')) {
-      final remainder = input.substring(11); // "Comment on "
-      if (kanbanState.tickets.isNotEmpty) {
-        final ticketTitles = kanbanState.tickets.map((t) => t.title).toList();
-        final bestTickets = _findCandidates(remainder, ticketTitles);
-        return bestTickets.map((t) => "Comment on $t: ").take(3).toList();
-      }
-    } else if (lowerInput.startsWith('comment ')) {
-      return ["Comment on "];
+    // 2. If we found strategy-specific suggestions, return them
+    if (suggestions.isNotEmpty) {
+      // Deduplicate and return
+      return suggestions.toSet().toList();
     }
 
-    // 3. Generic Command Fallback
-    const commands = ['Create', 'Move', 'Comment on'];
-    final bestCommands = _findCandidates(lowerInput, commands);
-    return bestCommands.take(3).toList();
-  }
+    // 3. Fallback: Generic initial commands if nothing matched specifically
+    // (e.g., user is typing "mo" -> suggest "move ")
+    // We can use the strategies' keywords for this.
+    final keywords = _strategies.map((s) => s.commandKeyword).toList();
+    // Use the mixin's findMatches directly here
+    final matches = findMatches(input, keywords);
 
-  List<String> _findCandidates(String input, List<String> candidates) {
-    if (input.isEmpty) return [];
-    final lowerInput = input.toLowerCase();
-
-    // 1. Filter and Score
-    var matches = candidates
-        .map((c) {
-          double score = 0.0;
-          final lowerC = c.toLowerCase();
-
-          if (lowerC.startsWith(lowerInput)) {
-            score += 1.0; // High priority for prefix match
-            // Penalty for length difference to prefer shorter precise matches?
-            // Actually, maybe generic string similarity is better for the rest
-          } else {
-            score = StringSimilarity.compareTwoStrings(lowerInput, lowerC);
-          }
-          return MapEntry(c, score);
-        })
-        .where((entry) => entry.value > 0.0)
-        .toList(); // Basic filtering
-
-    // 2. Sort
-    matches.sort((a, b) => b.value.compareTo(a.value));
-
-    // 3. Return candidates (thresholding could apply)
-    // Filter out very low quality matches if not prefix
-    return matches
-        .where((entry) => entry.value > 0.2) // slightly loose threshold
-        .map((e) => e.key)
-        .toList();
+    // Append a space to generic command suggestions for better UX
+    return matches.map((m) => "$m ").take(3).toList();
   }
 }

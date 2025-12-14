@@ -111,6 +111,34 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
     SpotlightService().hide();
   }
 
+  Widget _buildCommandItem(BuildContext context, String title, String syntax) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 8.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            syntax,
+            style: const TextStyle(
+              color: Colors.grey,
+              fontSize: 11,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final kanbanState = Provider.of<KanbanState>(context);
@@ -162,93 +190,163 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
-                                  child: CallbackShortcuts(
-                                    bindings: {
-                                      const SingleActivator(
-                                        LogicalKeyboardKey.tab,
-                                      ): () {
-                                        if (_suggestions.isNotEmpty) {
-                                          _acceptSuggestion(
-                                            _suggestions[_selectedIndex],
+                                  child: Focus(
+                                    onKeyEvent: (node, event) {
+                                      // Only handle key down events
+                                      if (event is! KeyDownEvent) {
+                                        return KeyEventResult.ignored;
+                                      }
+
+                                      // Handle backspace for smart word deletion
+                                      if (event.logicalKey ==
+                                          LogicalKeyboardKey.backspace) {
+                                        final wordToDelete = _controller
+                                            .findWordToDelete();
+                                        if (wordToDelete != null) {
+                                          final cursorPos =
+                                              _controller.selection.baseOffset;
+                                          int deleteLength =
+                                              wordToDelete.length;
+
+                                          // Check if there's a trailing space after the word
+                                          // (cursor would be after the space from tab completion)
+                                          if (cursorPos > 0 &&
+                                              _controller.text[cursorPos - 1] ==
+                                                  ' ') {
+                                            deleteLength +=
+                                                1; // Also delete the trailing space
+                                          }
+
+                                          // Delete from (cursorPos - deleteLength) to cursorPos
+                                          final newText =
+                                              _controller.text.substring(
+                                                0,
+                                                cursorPos - deleteLength,
+                                              ) +
+                                              _controller.text.substring(
+                                                cursorPos,
+                                              );
+                                          _controller.text = newText;
+                                          _controller.selection =
+                                              TextSelection.fromPosition(
+                                                TextPosition(
+                                                  offset:
+                                                      cursorPos - deleteLength,
+                                                ),
+                                              );
+
+                                          // Update suggestions
+                                          final kanbanState =
+                                              Provider.of<KanbanState>(
+                                                context,
+                                                listen: false,
+                                              );
+                                          final service = SuggestionService(
+                                            kanbanState,
                                           );
-                                        }
-                                      },
-                                      const SingleActivator(
-                                        LogicalKeyboardKey.arrowDown,
-                                      ): () {
-                                        if (_suggestions.isNotEmpty) {
                                           setState(() {
-                                            _selectedIndex =
-                                                (_selectedIndex + 1).clamp(
-                                                  0,
-                                                  _suggestions.length - 1,
+                                            _suggestions = service
+                                                .getSuggestions(
+                                                  _controller.text,
                                                 );
+                                            _selectedIndex = 0;
                                           });
+                                          return KeyEventResult.handled;
                                         }
-                                      },
-                                      const SingleActivator(
-                                        LogicalKeyboardKey.arrowUp,
-                                      ): () {
-                                        if (_suggestions.isNotEmpty) {
-                                          setState(() {
-                                            _selectedIndex =
-                                                (_selectedIndex - 1).clamp(
-                                                  0,
-                                                  _suggestions.length - 1,
-                                                );
-                                          });
-                                        }
-                                      },
-                                      const SingleActivator(
-                                        LogicalKeyboardKey.enter,
-                                      ): () {
-                                        if (_suggestions.isNotEmpty &&
-                                            _selectedIndex > 0) {
-                                          _acceptSuggestion(
-                                            _suggestions[_selectedIndex],
-                                          );
-                                        } else {
-                                          _submit(_controller.text);
-                                        }
-                                      },
-                                      const SingleActivator(
-                                        LogicalKeyboardKey.escape,
-                                      ): () {
-                                        SpotlightService().hide();
-                                      },
+                                        return KeyEventResult
+                                            .ignored; // Let default backspace work
+                                      }
+
+                                      return KeyEventResult.ignored;
                                     },
-                                    child: TextField(
-                                      controller: _controller,
-                                      focusNode: _focusNode,
-                                      style: const TextStyle(fontSize: 20),
-                                      decoration: const InputDecoration(
-                                        hintText: 'Search or create ticket...',
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.zero,
-                                      ),
-                                      onChanged: (value) {
-                                        final kanbanState =
-                                            Provider.of<KanbanState>(
-                                              context,
-                                              listen: false,
+                                    child: CallbackShortcuts(
+                                      bindings: {
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.tab,
+                                        ): () {
+                                          if (_suggestions.isNotEmpty) {
+                                            _acceptSuggestion(
+                                              _suggestions[_selectedIndex],
                                             );
-                                        final service = SuggestionService(
-                                          kanbanState,
-                                        );
-                                        setState(() {
-                                          _suggestions = service.getSuggestions(
-                                            value,
+                                          }
+                                        },
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.arrowDown,
+                                        ): () {
+                                          if (_suggestions.isNotEmpty) {
+                                            setState(() {
+                                              _selectedIndex =
+                                                  (_selectedIndex + 1).clamp(
+                                                    0,
+                                                    _suggestions.length - 1,
+                                                  );
+                                            });
+                                          }
+                                        },
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.arrowUp,
+                                        ): () {
+                                          if (_suggestions.isNotEmpty) {
+                                            setState(() {
+                                              _selectedIndex =
+                                                  (_selectedIndex - 1).clamp(
+                                                    0,
+                                                    _suggestions.length - 1,
+                                                  );
+                                            });
+                                          }
+                                        },
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.enter,
+                                        ): () {
+                                          if (_suggestions.isNotEmpty &&
+                                              _selectedIndex > 0) {
+                                            _acceptSuggestion(
+                                              _suggestions[_selectedIndex],
+                                            );
+                                          } else {
+                                            _submit(_controller.text);
+                                          }
+                                        },
+                                        const SingleActivator(
+                                          LogicalKeyboardKey.escape,
+                                        ): () {
+                                          SpotlightService().hide();
+                                        },
+                                      },
+                                      child: TextField(
+                                        controller: _controller,
+                                        focusNode: _focusNode,
+                                        style: const TextStyle(fontSize: 20),
+                                        decoration: const InputDecoration(
+                                          hintText:
+                                              'Search or create ticket...',
+                                          border: InputBorder.none,
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                        onChanged: (value) {
+                                          final kanbanState =
+                                              Provider.of<KanbanState>(
+                                                context,
+                                                listen: false,
+                                              );
+                                          final service = SuggestionService(
+                                            kanbanState,
                                           );
-                                          _selectedIndex = 0;
-                                        });
-                                      },
-                                      onSubmitted: (value) {
-                                        // Handled by CallbackShortcuts for Enter, but failsafe
-                                        if (!(_suggestions.isNotEmpty &&
-                                            _selectedIndex > 0)) {
-                                          _submit(value);
-                                        }
-                                      },
+                                          setState(() {
+                                            _suggestions = service
+                                                .getSuggestions(value);
+                                            _selectedIndex = 0;
+                                          });
+                                        },
+                                        onSubmitted: (value) {
+                                          // Handled by CallbackShortcuts for Enter, but failsafe
+                                          if (!(_suggestions.isNotEmpty &&
+                                              _selectedIndex > 0)) {
+                                            _submit(value);
+                                          }
+                                        },
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -332,14 +430,53 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                               ),
                             ),
                           ],
-                          // Placeholder for results
+                          // Command Reference
                           const Divider(height: 1),
                           Container(
-                            height: 200, // Placeholder height for results
-                            alignment: Alignment.center,
-                            child: const Text(
-                              "Recent Tickets / Results will appear here",
-                              style: TextStyle(color: Colors.grey),
+                            height: 200,
+                            padding: const EdgeInsets.all(16.0),
+                            child: SingleChildScrollView(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    "Command Reference",
+                                    style: TextStyle(
+                                      color: Colors.white70,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                  _buildCommandItem(
+                                    context,
+                                    "Create ticket",
+                                    "create ticket <name> in <project>",
+                                  ),
+                                  _buildCommandItem(
+                                    context,
+                                    "Comment on ticket",
+                                    "comment on <ticket>: <content>",
+                                  ),
+                                  _buildCommandItem(
+                                    context,
+                                    "Move ticket",
+                                    "move <ticket> to <column>",
+                                  ),
+                                  const SizedBox(height: 8),
+                                  const Padding(
+                                    padding: EdgeInsets.only(left: 8.0),
+                                    child: Text(
+                                      "Coming soon: create project, delete, rename, show",
+                                      style: TextStyle(
+                                        color: Colors.grey,
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ],
@@ -359,6 +496,7 @@ class SpotlightTextController extends TextEditingController {
   List<String> tickets = [];
   List<String> projects = [];
   final List<String> commands = ['Create', 'Move', 'Comment on'];
+  final List<String> columns = ['Todo', 'In Progress', 'Done'];
 
   void updateData(List<String> currentTickets, List<String> currentProjects) {
     if (listEquals(tickets, currentTickets) &&
@@ -385,6 +523,51 @@ class SpotlightTextController extends TextEditingController {
     return true;
   }
 
+  /// Find if cursor is at the end of a highlighted word (command, ticket, project, column)
+  /// Returns the word to delete, or null if not at end of a highlighted word
+  String? findWordToDelete() {
+    final cursorPos = selection.baseOffset;
+    if (cursorPos <= 0) return null;
+
+    final textBeforeCursor = text.substring(0, cursorPos);
+    final lowerTextBeforeCursor = textBeforeCursor.toLowerCase();
+
+    // Check all possible highlighted words
+    final allWords = [
+      ...commands,
+      ...tickets,
+      ...projects,
+      ...columns,
+      'on', // Special case for "on" in commands
+    ];
+
+    for (final word in allWords) {
+      // Case 1: Cursor directly after the word (e.g., "create|")
+      if (lowerTextBeforeCursor.endsWith(word.toLowerCase())) {
+        // Make sure we're actually at the end of this word
+        // (not in the middle of a longer word)
+        final startPos = cursorPos - word.length;
+        if (startPos == 0 || text[startPos - 1] == ' ') {
+          return text.substring(startPos, cursorPos);
+        }
+      }
+
+      // Case 2: Cursor after word + space (e.g., "create |")
+      if (lowerTextBeforeCursor.endsWith(word.toLowerCase() + ' ')) {
+        // Make sure we're actually at the end of this word + space
+        final startPos = cursorPos - word.length - 1;
+        if (startPos == 0 || text[startPos - 1] == ' ') {
+          return text.substring(
+            startPos,
+            cursorPos - 1,
+          ); // Return just the word, not the space
+        }
+      }
+    }
+
+    return null;
+  }
+
   @override
   TextSpan buildTextSpan({
     required BuildContext context,
@@ -407,6 +590,10 @@ class SpotlightTextController extends TextEditingController {
     );
     final projectStyle = style?.copyWith(
       color: Colors.purpleAccent,
+      fontWeight: FontWeight.bold,
+    );
+    final columnStyle = style?.copyWith(
+      color: Colors.orangeAccent,
       fontWeight: FontWeight.bold,
     );
     final commentStyle = style?.copyWith(color: Colors.orangeAccent);
@@ -507,6 +694,18 @@ class SpotlightTextController extends TextEditingController {
             bestMatchIndex = idx;
             bestMatchText = temp.substring(idx, idx + p.length);
             bestMatchStyle = projectStyle;
+          }
+        }
+      }
+
+      // 4. Columns
+      for (final col in columns) {
+        int idx = temp.toLowerCase().indexOf(col.toLowerCase());
+        if (idx != -1) {
+          if (bestMatchIndex == -1 || idx < bestMatchIndex) {
+            bestMatchIndex = idx;
+            bestMatchText = temp.substring(idx, idx + col.length);
+            bestMatchStyle = columnStyle;
           }
         }
       }
