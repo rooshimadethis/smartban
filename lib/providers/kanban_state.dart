@@ -17,6 +17,8 @@ class KanbanState extends ChangeNotifier {
   List<Project> get projects => _projects;
   List<Ticket> get tickets => _tickets;
   bool get isLoading => _isLoading;
+  bool _isDragging = false;
+  bool get isDragging => _isDragging;
 
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
@@ -101,5 +103,16 @@ class KanbanState extends ChangeNotifier {
     } catch (e) {
       return null;
     }
+  }
+
+  void deleteTicket(String ticketId) {
+    _tickets.removeWhere((t) => t.id == ticketId);
+    _saveData();
+    notifyListeners();
+  }
+
+  void setDragging(bool isDragging) {
+    _isDragging = isDragging;
+    notifyListeners();
   }
 }

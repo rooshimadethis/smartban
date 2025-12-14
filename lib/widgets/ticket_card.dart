@@ -94,6 +94,12 @@ class _TicketCardState extends State<TicketCard> {
         opacity: 0.5,
         child: _buildCardContent(context),
       ),
+      onDragStarted: () {
+        context.read<KanbanState>().setDragging(true);
+      },
+      onDragEnd: (_) {
+        context.read<KanbanState>().setDragging(false);
+      },
       child: _buildCardContent(context),
     );
   }

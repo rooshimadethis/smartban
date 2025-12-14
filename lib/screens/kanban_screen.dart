@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:smartban/models/ticket.dart';
 import 'package:smartban/providers/kanban_state.dart';
 import 'package:smartban/widgets/kanban_column.dart';
+import 'package:smartban/widgets/trash_can_target.dart';
 
 class KanbanScreen extends StatelessWidget {
   const KanbanScreen({super.key});
@@ -35,16 +36,24 @@ class KanbanScreen extends StatelessWidget {
           if (state.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
-          return const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                KanbanColumn(status: TicketStatus.todo),
-                KanbanColumn(status: TicketStatus.inProgress),
-                KanbanColumn(status: TicketStatus.done),
-              ],
-            ),
+          return Stack(
+            children: [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    KanbanColumn(status: TicketStatus.todo),
+                    KanbanColumn(status: TicketStatus.inProgress),
+                    KanbanColumn(status: TicketStatus.done),
+                  ],
+                ),
+              ),
+              const Align(
+                alignment: Alignment.bottomCenter,
+                child: TrashCanTarget(),
+              ),
+            ],
           );
         },
       ),
