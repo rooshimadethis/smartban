@@ -31,9 +31,9 @@ void main() {
     final state = FakeKanbanState();
     final service = SuggestionService(state);
 
-    expect(service.getSuggestion('Cre'), 'Create');
-    expect(service.getSuggestion('Mov'), 'Move');
-    expect(service.getSuggestion('Com'), 'Comment');
+    expect(service.getSuggestions('Cre'), contains('Create'));
+    expect(service.getSuggestions('Mov'), contains('Move'));
+    expect(service.getSuggestions('Com'), contains('Comment on'));
   });
 
   test('SuggestionService suggests ticket for Move', () {
@@ -51,7 +51,7 @@ void main() {
     final service = SuggestionService(state);
 
     // "Move F" -> "Move Fix Login Bug"
-    expect(service.getSuggestion('Move F'), 'Move Fix Login Bug');
+    expect(service.getSuggestions('Move F'), contains('Move Fix Login Bug'));
   });
 
   test('SuggestionService suggests status for Move', () {
@@ -60,9 +60,12 @@ void main() {
 
     // "Move something to T" -> "Move something to Todo"
     expect(
-      service.getSuggestion('Move Fix Login Bug to T'),
-      'Move Fix Login Bug to Todo',
+      service.getSuggestions('Move Fix Login Bug to T'),
+      contains('Move Fix Login Bug to Todo'),
     );
-    expect(service.getSuggestion('Move X to I'), 'Move X to In Progress');
+    expect(
+      service.getSuggestions('Move X to I'),
+      contains('Move X to In Progress'),
+    );
   });
 }

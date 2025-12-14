@@ -19,7 +19,8 @@ class SpotlightOverlay extends StatefulWidget {
 class _SpotlightOverlayState extends State<SpotlightOverlay> {
   final FocusNode _focusNode = FocusNode();
   late final SpotlightTextController _controller;
-  String? _suggestion;
+  List<String> _suggestions = [];
+  int _selectedIndex = 0;
 
   @override
   void initState() {
@@ -46,8 +47,68 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
       // Clear focus when hidden
       _focusNode.unfocus();
       _controller.clear();
+      setState(() {
+        _suggestions = [];
+        _selectedIndex = 0;
+      });
     }
     setState(() {});
+  }
+
+  void _acceptSuggestion(String suggestion) {
+    String textToInsert = suggestion;
+    if (!textToInsert.endsWith(" ")) {
+      textToInsert += " ";
+    }
+    _controller.text = textToInsert;
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: _controller.text.length),
+    );
+    setState(() {
+      _suggestions = [];
+      _selectedIndex = 0;
+    });
+    // Re-trigger suggestions for new text?
+    final kanbanState = Provider.of<KanbanState>(context, listen: false);
+    final service = SuggestionService(kanbanState);
+    setState(() {
+      _suggestions = service.getSuggestions(_controller.text);
+      _selectedIndex = 0; // Reset to top
+    });
+  }
+
+  Future<void> _submit(String value) async {
+    if (value.trim().isEmpty) return;
+
+    final kanbanState = Provider.of<KanbanState>(context, listen: false);
+    final nlpService = NLPService(kanbanState);
+    final messenger = ScaffoldMessenger.of(context);
+
+    final result = await nlpService.process(value);
+
+    if (!context.mounted) return;
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.message,
+          style: const TextStyle(color: Colors.white),
+        ),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(20),
+        backgroundColor: const Color(0xFF333333),
+        duration: const Duration(seconds: 10),
+        action: result.undoAction != null
+            ? SnackBarAction(
+                label: 'Undo',
+                textColor: Colors.white,
+                onPressed: result.undoAction!,
+              )
+            : null,
+      ),
+    );
+
+    SpotlightService().hide();
   }
 
   @override
@@ -106,23 +167,54 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                       const SingleActivator(
                                         LogicalKeyboardKey.tab,
                                       ): () {
-                                        if (_suggestion != null) {
-                                          String textToInsert = _suggestion!;
-                                          if (!textToInsert.endsWith(" ")) {
-                                            textToInsert += " ";
-                                          }
-                                          _controller.text = textToInsert;
-                                          _controller.selection =
-                                              TextSelection.fromPosition(
-                                                TextPosition(
-                                                  offset:
-                                                      _controller.text.length,
-                                                ),
-                                              );
+                                        if (_suggestions.isNotEmpty) {
+                                          _acceptSuggestion(
+                                            _suggestions[_selectedIndex],
+                                          );
+                                        }
+                                      },
+                                      const SingleActivator(
+                                        LogicalKeyboardKey.arrowDown,
+                                      ): () {
+                                        if (_suggestions.isNotEmpty) {
                                           setState(() {
-                                            _suggestion = null;
+                                            _selectedIndex =
+                                                (_selectedIndex + 1).clamp(
+                                                  0,
+                                                  _suggestions.length - 1,
+                                                );
                                           });
                                         }
+                                      },
+                                      const SingleActivator(
+                                        LogicalKeyboardKey.arrowUp,
+                                      ): () {
+                                        if (_suggestions.isNotEmpty) {
+                                          setState(() {
+                                            _selectedIndex =
+                                                (_selectedIndex - 1).clamp(
+                                                  0,
+                                                  _suggestions.length - 1,
+                                                );
+                                          });
+                                        }
+                                      },
+                                      const SingleActivator(
+                                        LogicalKeyboardKey.enter,
+                                      ): () {
+                                        if (_suggestions.isNotEmpty &&
+                                            _selectedIndex > 0) {
+                                          _acceptSuggestion(
+                                            _suggestions[_selectedIndex],
+                                          );
+                                        } else {
+                                          _submit(_controller.text);
+                                        }
+                                      },
+                                      const SingleActivator(
+                                        LogicalKeyboardKey.escape,
+                                      ): () {
+                                        SpotlightService().hide();
                                       },
                                     },
                                     child: TextField(
@@ -144,60 +236,18 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                                           kanbanState,
                                         );
                                         setState(() {
-                                          _suggestion = service.getSuggestion(
+                                          _suggestions = service.getSuggestions(
                                             value,
                                           );
+                                          _selectedIndex = 0;
                                         });
                                       },
-                                      onSubmitted: (value) async {
-                                        if (value.trim().isEmpty) return;
-
-                                        final kanbanState =
-                                            Provider.of<KanbanState>(
-                                              context,
-                                              listen: false,
-                                            );
-                                        final nlpService = NLPService(
-                                          kanbanState,
-                                        );
-
-                                        final result = await nlpService.process(
-                                          value,
-                                        );
-
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(
-                                            context,
-                                          ).showSnackBar(
-                                            SnackBar(
-                                              content: Text(
-                                                result.message,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                ),
-                                              ),
-                                              behavior:
-                                                  SnackBarBehavior.floating,
-                                              margin: const EdgeInsets.all(20),
-                                              backgroundColor: const Color(
-                                                0xFF333333,
-                                              ),
-                                              duration: const Duration(
-                                                seconds: 10,
-                                              ),
-                                              action: result.undoAction != null
-                                                  ? SnackBarAction(
-                                                      label: 'Undo',
-                                                      textColor: Colors.white,
-                                                      onPressed: result
-                                                          .undoAction!, // Call the undo closure
-                                                    )
-                                                  : null,
-                                            ),
-                                          );
+                                      onSubmitted: (value) {
+                                        // Handled by CallbackShortcuts for Enter, but failsafe
+                                        if (!(_suggestions.isNotEmpty &&
+                                            _selectedIndex > 0)) {
+                                          _submit(value);
                                         }
-
-                                        SpotlightService().hide();
                                       },
                                     ),
                                   ),
@@ -205,69 +255,83 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
                               ],
                             ),
                           ),
-                          if (_suggestion != null)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 56.0,
-                                vertical: 8.0,
-                              ),
-                              child: GestureDetector(
-                                onTap: () {
-                                  String textToInsert = _suggestion!;
-                                  if (!textToInsert.endsWith(" ")) {
-                                    textToInsert += " ";
+                          if (_suggestions.isNotEmpty) ...[
+                            // List of suggestions
+                            Container(
+                              constraints: const BoxConstraints(maxHeight: 200),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                itemCount: _suggestions.length,
+                                itemBuilder: (context, index) {
+                                  final isSelected = index == _selectedIndex;
+                                  final suggestion = _suggestions[index];
+                                  final lowerSuggestion = suggestion
+                                      .toLowerCase();
+
+                                  // Determine color based on type
+                                  Color highlightColor = Theme.of(
+                                    context,
+                                  ).primaryColor; // Default
+                                  if (lowerSuggestion.startsWith('move')) {
+                                    highlightColor = Colors.blueAccent;
+                                  } else if (lowerSuggestion.startsWith(
+                                    'comment',
+                                  )) {
+                                    highlightColor = Colors.blueAccent;
+                                  } else if (lowerSuggestion.startsWith(
+                                    'create',
+                                  )) {
+                                    highlightColor = Colors.blueAccent;
                                   }
-                                  _controller.text = textToInsert;
-                                  _controller.selection =
-                                      TextSelection.fromPosition(
-                                        TextPosition(
-                                          offset: _controller.text.length,
-                                        ),
-                                      );
-                                  setState(() {
-                                    _suggestion = null;
-                                  });
-                                  _focusNode.requestFocus();
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(
-                                      context,
-                                    ).primaryColor.withValues(alpha: 0.2),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        _suggestion!,
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).primaryColorLight,
-                                          fontWeight: FontWeight.bold,
-                                        ),
+
+                                  return GestureDetector(
+                                    onTap: () {
+                                      _acceptSuggestion(_suggestions[index]);
+                                      _focusNode.requestFocus();
+                                    },
+                                    child: Container(
+                                      color: isSelected
+                                          ? highlightColor.withValues(
+                                              alpha: 0.2,
+                                            )
+                                          : null,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 56.0,
+                                        vertical: 12.0,
                                       ),
-                                      const SizedBox(width: 8),
-                                      Text(
-                                        "Press Tab",
-                                        style: TextStyle(
-                                          color: Colors.grey.withValues(
-                                            alpha: 0.5,
+                                      child: Row(
+                                        children: [
+                                          Text(
+                                            suggestion,
+                                            style: TextStyle(
+                                              color: isSelected
+                                                  ? highlightColor
+                                                  : Colors.white70,
+                                              fontWeight: isSelected
+                                                  ? FontWeight.bold
+                                                  : FontWeight.normal,
+                                            ),
                                           ),
-                                          fontSize: 12,
-                                        ),
+                                          if (isSelected) ...[
+                                            const Spacer(),
+                                            Text(
+                                              "Press Tab",
+                                              style: TextStyle(
+                                                color: Colors.grey.withValues(
+                                                  alpha: 0.5,
+                                                ),
+                                                fontSize: 12,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
                                       ),
-                                    ],
-                                  ),
-                                ),
+                                    ),
+                                  );
+                                },
                               ),
                             ),
-                          // Placeholder for results
+                          ],
                           // Placeholder for results
                           const Divider(height: 1),
                           Container(
