@@ -105,110 +105,88 @@ class _TicketCardState extends State<TicketCard> {
   }
 
   Widget _buildCardContent(BuildContext context) {
-    return GestureDetector(
-      onTap: () {
-        if (!_isEditing) {
-          setState(() {
-            _isEditing = true;
-          });
-        }
-      },
-      child: Card(
-        margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
-        elevation: 2,
-        color: const Color(0xFF2C2C2C), // Dark card background
-        shape: RoundedRectangleBorder(
-          side: const BorderSide(color: Colors.white10, width: 1),
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (widget.project != null)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 6,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: widget.project!.color.withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(
-                        color: widget.project!.color.withValues(alpha: 0.3),
-                      ), // Subtle border for project tag
-                    ),
-                    child: Text(
-                      widget.project!.name,
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: widget.project!.color,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: () {
+          if (!_isEditing) {
+            setState(() {
+              _isEditing = true;
+            });
+          }
+        },
+        child: Card(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          elevation: 2,
+          color: const Color(0xFF2C2C2C), // Dark card background
+          shape: RoundedRectangleBorder(
+            side: const BorderSide(color: Colors.white10, width: 1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.ticket.title,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: Colors.white,
                   ),
                 ),
-              Text(
-                widget.ticket.title,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(height: 4),
-              _isEditing
-                  ? TextField(
-                      controller: _descriptionController,
-                      autofocus: true,
-                      maxLines: null,
-                      keyboardType: TextInputType.multiline,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                      decoration: const InputDecoration(
-                        isDense: true,
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.zero,
-                      ),
-                      onSubmitted: (_) => _save(),
-                      onTapOutside: (_) => _save(),
-                    )
-                  : Text(
-                      widget.ticket.description,
-                      style: TextStyle(color: Colors.grey[400], fontSize: 12),
-                    ),
-              if (widget.ticket.comments.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 4,
-                  runSpacing: 4,
-                  children: widget.ticket.comments.map((comment) {
-                    return Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 6,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
+                const SizedBox(height: 4),
+                _isEditing
+                    ? TextField(
+                        controller: _descriptionController,
+                        autofocus: true,
+                        maxLines: null,
+                        keyboardType: TextInputType.multiline,
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
                         ),
+                        onSubmitted: (_) => _save(),
+                        onTapOutside: (_) => _save(),
+                      )
+                    : Text(
+                        widget.ticket.description,
+                        style: TextStyle(color: Colors.grey[400], fontSize: 12),
                       ),
-                      child: Text(
-                        comment,
-                        style: const TextStyle(
-                          fontSize: 10,
-                          color: Colors.white70,
+                if (widget.ticket.comments.isNotEmpty) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 4,
+                    runSpacing: 4,
+                    children: widget.ticket.comments.map((comment) {
+                      return Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
                         ),
-                      ),
-                    );
-                  }).toList(),
-                ),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(4),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Text(
+                          comment,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
         ),
       ),

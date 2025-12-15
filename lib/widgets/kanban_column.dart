@@ -87,7 +87,7 @@ class KanbanColumn extends StatelessWidget {
                       return ListView(
                         padding: const EdgeInsets.all(8),
                         children: [
-                          ...kanbanState.projects.map((project) {
+                          ...kanbanState.visibleProjects.map((project) {
                             final tickets = kanbanState
                                 .getTicketsByStatusAndProject(
                                   status,

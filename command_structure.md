@@ -1,5 +1,5 @@
 Commands list:
-- create project <name> (ignore for now)
+- create project <name>
 - create ticket <name> in <project>
 - comment on <ticket>: <content>
 - move <ticket> to <column>

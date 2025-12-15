@@ -20,6 +20,19 @@ class KanbanState extends ChangeNotifier {
   bool _isDragging = false;
   bool get isDragging => _isDragging;
 
+  String? _selectedProjectId;
+  String? get selectedProjectId => _selectedProjectId;
+
+  final Set<String> _hiddenProjectIds = {};
+  Set<String> get hiddenProjectIds => _hiddenProjectIds;
+
+  List<Project> get visibleProjects {
+    if (_selectedProjectId != null) {
+      return _projects.where((p) => p.id == _selectedProjectId).toList();
+    }
+    return _projects.where((p) => !_hiddenProjectIds.contains(p.id)).toList();
+  }
+
   Future<void> _loadData() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -51,6 +64,30 @@ class KanbanState extends ChangeNotifier {
 
     final ticketsJson = jsonEncode(_tickets.map((t) => t.toJson()).toList());
     await prefs.setString('tickets', ticketsJson);
+  }
+
+  // ... existing methods ...
+
+  void selectProject(String? projectId) {
+    if (_selectedProjectId == projectId) {
+      _selectedProjectId = null;
+    } else {
+      _selectedProjectId = projectId;
+    }
+    notifyListeners();
+  }
+
+  void toggleProjectVisibility(String projectId) {
+    if (_hiddenProjectIds.contains(projectId)) {
+      _hiddenProjectIds.remove(projectId);
+    } else {
+      _hiddenProjectIds.add(projectId);
+      // If we hide the currently selected project, deselect it
+      if (_selectedProjectId == projectId) {
+        _selectedProjectId = null;
+      }
+    }
+    notifyListeners();
   }
 
   List<Ticket> getTicketsByStatusAndProject(
@@ -122,6 +159,23 @@ class KanbanState extends ChangeNotifier {
 
   void setDragging(bool isDragging) {
     _isDragging = isDragging;
+    notifyListeners();
+  }
+
+  void deleteProject(String projectId) {
+    // Remove the project
+    _projects.removeWhere((p) => p.id == projectId);
+
+    // Remove all tickets associated with the project
+    _tickets.removeWhere((t) => t.projectId == projectId);
+
+    // Clean up selection and hidden state
+    if (_selectedProjectId == projectId) {
+      _selectedProjectId = null;
+    }
+    _hiddenProjectIds.remove(projectId);
+
+    _saveData();
     notifyListeners();
   }
 }

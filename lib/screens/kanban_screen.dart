@@ -3,6 +3,8 @@ import 'package:provider/provider.dart';
 import 'package:smartban/models/ticket.dart';
 import 'package:smartban/providers/kanban_state.dart';
 import 'package:smartban/widgets/kanban_column.dart';
+import 'package:smartban/widgets/project_list.dart';
+import 'package:smartban/services/spotlight_service.dart';
 import 'package:smartban/widgets/trash_can_target.dart';
 
 class KanbanScreen extends StatelessWidget {
@@ -25,7 +27,7 @@ class KanbanScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.add, color: Colors.blueAccent),
             onPressed: () {
-              // TODO: Add ticket creation
+              SpotlightService().show();
             },
           ),
           const SizedBox(width: 16),
@@ -43,6 +45,8 @@ class KanbanScreen extends StatelessWidget {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    ProjectList(),
+                    SizedBox(width: 16),
                     KanbanColumn(status: TicketStatus.todo),
                     KanbanColumn(status: TicketStatus.inProgress),
                     KanbanColumn(status: TicketStatus.done),
