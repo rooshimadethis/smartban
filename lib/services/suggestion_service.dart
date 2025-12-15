@@ -3,7 +3,8 @@ import 'package:smartban/services/suggestion/command_strategy.dart';
 import 'package:smartban/services/suggestion/strategies/move_strategy.dart';
 import 'package:smartban/services/suggestion/strategies/comment_strategy.dart';
 import 'package:smartban/services/suggestion/strategies/create_ticket_strategy.dart';
-import 'package:smartban/services/suggestion/suggestion_mixin.dart'; // Import for fallback usage if needed
+import 'package:smartban/services/suggestion/suggestion_mixin.dart';
+import 'package:smartban/services/suggestion/highlight_segment.dart';
 
 class SuggestionService with SuggestionMixin {
   final KanbanState kanbanState;
@@ -42,5 +43,19 @@ class SuggestionService with SuggestionMixin {
 
     // Append a space to generic command suggestions for better UX
     return matches.map((m) => "$m ").take(3).toList();
+  }
+
+  /// Returns highlighting information for the input text.
+  List<HighlightSegment> getHighlights(String input) {
+    if (input.trim().isEmpty) return [];
+
+    // Find matching strategy and get highlights
+    for (final strategy in _strategies) {
+      if (strategy.matches(input)) {
+        return strategy.getHighlights(input, kanbanState);
+      }
+    }
+
+    return []; // No highlights if no strategy matches
   }
 }

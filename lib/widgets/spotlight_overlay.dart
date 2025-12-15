@@ -6,6 +6,7 @@ import 'package:smartban/services/spotlight_service.dart';
 
 import 'package:flutter/services.dart';
 import 'package:smartban/services/suggestion_service.dart';
+import 'package:smartban/services/suggestion/highlight_segment.dart';
 
 class SpotlightOverlay extends StatefulWidget {
   final Widget child;
@@ -146,6 +147,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
       kanbanState.tickets.map((t) => t.title).toList(),
       kanbanState.projects.map((p) => p.name).toList(),
     );
+    _controller.setKanbanState(kanbanState);
     return Stack(
       children: [
         widget.child,
@@ -496,6 +498,7 @@ class _SpotlightOverlayState extends State<SpotlightOverlay> {
 class SpotlightTextController extends TextEditingController {
   List<String> tickets = [];
   List<String> projects = [];
+  KanbanState? _kanbanState;
   final List<String> commands = ['Create', 'Move', 'Comment on'];
   final List<String> columns = ['Todo', 'In Progress', 'Done'];
 
@@ -507,6 +510,10 @@ class SpotlightTextController extends TextEditingController {
     tickets = List.from(currentTickets);
     projects = List.from(currentProjects);
     // Don't notify here to avoid build loops, the data is updated for the next buildTextSpan call.
+  }
+
+  void setKanbanState(KanbanState state) {
+    _kanbanState = state;
   }
 
   bool listEquals<T>(List<T>? a, List<T>? b) {
@@ -575,16 +582,25 @@ class SpotlightTextController extends TextEditingController {
     TextStyle? style,
     required bool withComposing,
   }) {
-    final List<InlineSpan> children = [];
-    final String text = this.text;
-    final String lowerText = text.toLowerCase();
+    if (_kanbanState == null) {
+      // Fallback to plain text if no state available
+      return TextSpan(text: text, style: style);
+    }
 
-    // Styles
+    // Get highlights from SuggestionService
+    final service = SuggestionService(_kanbanState!);
+    final highlights = service.getHighlights(text);
+
+    if (highlights.isEmpty) {
+      // No highlights, return plain text
+      return TextSpan(text: text, style: style);
+    }
+
+    // Define styles for each highlight type
     final commandStyle = style?.copyWith(
       color: Colors.blueAccent,
       fontWeight: FontWeight.bold,
     );
-    // Use slightly different greens/purples to be distinct
     final ticketStyle = style?.copyWith(
       color: Colors.greenAccent,
       fontWeight: FontWeight.bold,
@@ -597,136 +613,61 @@ class SpotlightTextController extends TextEditingController {
       color: Colors.orangeAccent,
       fontWeight: FontWeight.bold,
     );
-    final commentStyle = style?.copyWith(color: Colors.orangeAccent);
+    final contentStyle = style?.copyWith(color: Colors.orangeAccent);
 
-    // Special handling for "Comment on <Ticket>: <Content>"
-    if (lowerText.startsWith("comment on ")) {
-      // Highlight "Comment"
-      children.add(TextSpan(text: text.substring(0, 7), style: commandStyle));
+    // Build TextSpan children from highlights
+    final List<InlineSpan> children = [];
+    int currentPos = 0;
 
-      String remaining = text.substring(7);
-      // " on " - highlight as command style
-      if (remaining.toLowerCase().startsWith(" on ")) {
+    // Sort highlights by start position
+    final sortedHighlights = List<HighlightSegment>.from(highlights)
+      ..sort((a, b) => a.start.compareTo(b.start));
+
+    for (final highlight in sortedHighlights) {
+      // Add unhighlighted text before this highlight
+      if (currentPos < highlight.start) {
         children.add(
-          TextSpan(text: remaining.substring(0, 4), style: commandStyle),
+          TextSpan(
+            text: text.substring(currentPos, highlight.start),
+            style: style,
+          ),
         );
-        remaining = remaining.substring(4);
-
-        // Look for ticket
-        String? matchedTicket;
-        for (final ticket in tickets) {
-          // Case insensitive match
-          if (remaining.toLowerCase().startsWith(ticket.toLowerCase())) {
-            matchedTicket = remaining.substring(0, ticket.length);
-            break;
-          }
-        }
-
-        if (matchedTicket != null) {
-          children.add(TextSpan(text: matchedTicket, style: ticketStyle));
-          remaining = remaining.substring(matchedTicket.length);
-
-          // Look for colon
-          int colonIndex = remaining.indexOf(':');
-          if (colonIndex != -1) {
-            // Text before colon (including it?)
-            children.add(
-              TextSpan(
-                text: remaining.substring(0, colonIndex + 1),
-                style: style,
-              ),
-            );
-            // Text after colon is comment content
-            String commentContent = remaining.substring(colonIndex + 1);
-            if (commentContent.isNotEmpty) {
-              children.add(TextSpan(text: commentContent, style: commentStyle));
-            }
-            return TextSpan(style: style, children: children);
-          } else {
-            // No colon yet
-            children.add(TextSpan(text: remaining, style: style));
-            return TextSpan(style: style, children: children);
-          }
-        } else {
-          // Fall through or just return what we have?
-          children.add(TextSpan(text: remaining, style: style));
-          return TextSpan(style: style, children: children);
-        }
       }
+
+      // Add highlighted text
+      TextStyle? highlightStyle;
+      switch (highlight.type) {
+        case HighlightType.command:
+        case HighlightType.keyword:
+          highlightStyle = commandStyle;
+          break;
+        case HighlightType.ticket:
+          highlightStyle = ticketStyle;
+          break;
+        case HighlightType.project:
+          highlightStyle = projectStyle;
+          break;
+        case HighlightType.column:
+          highlightStyle = columnStyle;
+          break;
+        case HighlightType.content:
+          highlightStyle = contentStyle;
+          break;
+      }
+
+      children.add(
+        TextSpan(
+          text: text.substring(highlight.start, highlight.end),
+          style: highlightStyle,
+        ),
+      );
+
+      currentPos = highlight.end;
     }
 
-    // Generic Algorithm
-    String temp = text;
-
-    while (temp.isNotEmpty) {
-      int bestMatchIndex = -1;
-      String? bestMatchText;
-      TextStyle? bestMatchStyle;
-
-      // 1. Check for Command
-      for (final cmd in commands) {
-        int idx = temp.toLowerCase().indexOf(cmd.toLowerCase());
-        if (idx != -1) {
-          if (bestMatchIndex == -1 || idx < bestMatchIndex) {
-            bestMatchIndex = idx;
-            bestMatchText = temp.substring(idx, idx + cmd.length);
-            bestMatchStyle = commandStyle;
-          }
-        }
-      }
-
-      // 2. Tickets
-      for (final t in tickets) {
-        int idx = temp.toLowerCase().indexOf(t.toLowerCase());
-        if (idx != -1) {
-          if (bestMatchIndex == -1 || idx < bestMatchIndex) {
-            bestMatchIndex = idx;
-            bestMatchText = temp.substring(idx, idx + t.length);
-            bestMatchStyle = ticketStyle;
-          }
-        }
-      }
-
-      // 3. Projects
-      for (final p in projects) {
-        int idx = temp.toLowerCase().indexOf(p.toLowerCase());
-        if (idx != -1) {
-          if (bestMatchIndex == -1 || idx < bestMatchIndex) {
-            bestMatchIndex = idx;
-            bestMatchText = temp.substring(idx, idx + p.length);
-            bestMatchStyle = projectStyle;
-          }
-        }
-      }
-
-      // 4. Columns
-      for (final col in columns) {
-        int idx = temp.toLowerCase().indexOf(col.toLowerCase());
-        if (idx != -1) {
-          if (bestMatchIndex == -1 || idx < bestMatchIndex) {
-            bestMatchIndex = idx;
-            bestMatchText = temp.substring(idx, idx + col.length);
-            bestMatchStyle = columnStyle;
-          }
-        }
-      }
-
-      if (bestMatchIndex != -1) {
-        // Add text before match
-        if (bestMatchIndex > 0) {
-          children.add(
-            TextSpan(text: temp.substring(0, bestMatchIndex), style: style),
-          );
-        }
-        // Add match
-        children.add(TextSpan(text: bestMatchText, style: bestMatchStyle));
-        // Advance
-        temp = temp.substring(bestMatchIndex + bestMatchText!.length);
-      } else {
-        // No more matches
-        children.add(TextSpan(text: temp, style: style));
-        break;
-      }
+    // Add any remaining unhighlighted text
+    if (currentPos < text.length) {
+      children.add(TextSpan(text: text.substring(currentPos), style: style));
     }
 
     return TextSpan(style: style, children: children);
